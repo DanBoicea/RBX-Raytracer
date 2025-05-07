@@ -49,10 +49,13 @@ void render1_test(int samples_per_pixel, bool repeat = false)
         std::chrono::duration<double> seconds_elapsed = end_time - start_time;
         std::clog << "Time elapsed: " << static_cast<int>(seconds_elapsed.count() / 60) << " minutes and " 
                                         << fmod(seconds_elapsed.count(), 60) << " seconds.\n";
+
+        if (!repeat)
+            break;
     }
 }
 
-void render2_test(int samples_per_pixel, bool repeat = false)
+void render2_test(int samples_per_pixel)
 {
     auto start_time = std::chrono::steady_clock::now();
 
