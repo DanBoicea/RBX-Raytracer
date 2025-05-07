@@ -9,7 +9,7 @@
 #include <iostream>
 #include <chrono>
 
-void render1_test(int samples_per_pixel)
+void render1_test(int samples_per_pixel, bool repeat = false)
 {
     // Render 15 times
     for (int i = 0; i < 15; ++i)
@@ -52,7 +52,7 @@ void render1_test(int samples_per_pixel)
     }
 }
 
-void render2_test(int samples_per_pixel)
+void render2_test(int samples_per_pixel, bool repeat = false)
 {
     auto start_time = std::chrono::steady_clock::now();
 

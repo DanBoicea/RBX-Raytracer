@@ -6,6 +6,11 @@
 #include "hittable.h"
 #include "material.h"
 
+#include <vector>
+#include <thread>
+#include <mutex>
+#include <sstream>
+
 class camera 
 {
 public:
@@ -22,32 +27,83 @@ public:
 
     double defocus_angle = 0;   // Variation angle of rays through each pixel
     double focus_dist = 10;     // Distance from camera lookfrom point to plane of perfect focus
+       
+    std::mutex log_mutex;       // Protects console output
 
-    void render(const hittable& world) 
+    void render_scanlines(int start, int end, int thread_id, const hittable& world, std::vector<color>& image)
     {
-        initialize();
-
-        std::cout << "P3\n" << image_width << " " << image_height << "\n255\n";
-
-        for (int j = 0; j < image_height; j++) 
-        {
-            std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
-            for (int i = 0; i < image_width; i++) 
-            {
+        for (int j = start; j < end; j++) {
+            for (int i = 0; i < image_width; i++) {
                 color pixel_color(0, 0, 0);
-
-                for (int sample = 0; sample < samples_per_pixel; ++sample)
-                {
+    
+                for (int sample = 0; sample < samples_per_pixel; ++sample) {
                     ray r = get_ray(i, j);
                     pixel_color += ray_color(r, max_depth, world);
                 }
-
-                write_color(std::cout, pixel_samples_scale * pixel_color);
+    
+                image[j * image_width + i] = pixel_samples_scale * pixel_color; // Store result
             }
         }
+    }
 
+    void render(const hittable& world) {
+        initialize();
+        std::cout << "P3\n" << image_width << " " << image_height << "\n255\n";
+    
+        std::vector<color> image(image_width * image_height); // Shared buffer
+        const int num_threads = std::thread::hardware_concurrency();
+        std::vector<std::thread> threads;
+        int chunk_size = image_height / num_threads;
+    
+        for (int t = 0; t < num_threads; ++t) {
+            int start = t * chunk_size;
+            int end = (t == num_threads - 1) ? image_height : start + chunk_size;
+            threads.emplace_back([this, start, end, t, &world, &image]() {
+                render_scanlines(start, end, t, world, image);
+            });
+        }
+    
+        for (auto& thread : threads) {
+            thread.join();
+        }
+    
+        // Print final image output serially
+        for (int j = 0; j < image_height; j++) {
+            for (int i = 0; i < image_width; i++) {
+                write_color(std::cout, image[j * image_width + i]);
+            }
+        }
+    
         std::clog << "\rDone.                 \n";
     }
+    
+    
+
+    // void render(const hittable& world) 
+    // {
+    //     initialize();
+
+    //     std::cout << "P3\n" << image_width << " " << image_height << "\n255\n";
+
+    //     for (int j = 0; j < image_height; j++) 
+    //     {
+    //         std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
+    //         for (int i = 0; i < image_width; i++) 
+    //         {
+    //             color pixel_color(0, 0, 0);
+
+    //             for (int sample = 0; sample < samples_per_pixel; ++sample)
+    //             {
+    //                 ray r = get_ray(i, j);
+    //                 pixel_color += ray_color(r, max_depth, world);
+    //             }
+
+    //             write_color(std::cout, pixel_samples_scale * pixel_color);
+    //         }
+    //     }
+
+    //     std::clog << "\rDone.                 \n";
+    // }
 
 private:
     int     image_height;               // Rendered image height
